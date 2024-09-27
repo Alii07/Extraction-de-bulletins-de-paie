@@ -1,62 +1,72 @@
-import streamlit as st # data app development
-import subprocess # process in the os
-from subprocess import STDOUT, check_call #os process manipuation
-import os #os process manipuation
-import base64 # byte object into a pdf file 
-import camelot as cam # extracting tables from PDFs 
+import subprocess
+import os
+import base64
+import camelot as cam
 
-# to run this only once and it's cached
-@st.cache
-def gh():
-    """install ghostscript on the linux machine"""
-    proc = subprocess.Popen('apt-get install -y ghostscript', shell=True, stdin=None, stdout=open(os.devnull,"wb"), stderr=STDOUT, executable="/bin/bash")
-    proc.wait()
+def install_ghostscript():
+    """Installe Ghostscript sur la machine si nécessaire."""
+    try:
+        # Vérifie si Ghostscript est déjà installé
+        subprocess.check_call(['gs', '--version'])
+        print("Ghostscript est déjà installé.")
+    except subprocess.CalledProcessError:
+        # Si Ghostscript n'est pas installé, essaie de l'installer
+        print("Installation de Ghostscript...")
+        proc = subprocess.Popen('apt-get install -y ghostscript', shell=True, stdin=None, stdout=open(os.devnull, "wb"), stderr=subprocess.STDOUT, executable="/bin/bash")
+        proc.wait()
 
-gh()
-
-
-
-st.title("PDF Table Extractor")
-st.subheader("with `Camelot` Python library")
-
-st.image("https://raw.githubusercontent.com/camelot-dev/camelot/master/docs/_static/camelot.png", width=200)
-
-
-# file uploader on streamlit 
-
-input_pdf = st.file_uploader(label = "upload your pdf here", type = 'pdf')
-
-st.markdown("### Page Number")
-
-page_number = st.text_input("Enter the page # from where you want to extract the PDF eg: 3", value = 1)
-
-# run this only when a PDF is uploaded
-
-if input_pdf is not None:
-    # byte object into a PDF file 
-    with open("input.pdf", "wb") as f:
-        base64_pdf = base64.b64encode(input_pdf.read()).decode('utf-8')
+def save_pdf(input_pdf_content, output_file):
+    """Enregistre un contenu de PDF (sous forme de bytes) en fichier PDF."""
+    with open(output_file, "wb") as f:
+        base64_pdf = base64.b64encode(input_pdf_content).decode('utf-8')
         f.write(base64.b64decode(base64_pdf))
-    f.close()
 
-    # read the pdf and parse it using stream
-    table = cam.read_pdf("input.pdf", pages = page_number, flavor = 'stream')
+def extract_tables_from_pdf(pdf_file, page_number):
+    """Extrait les tables d'un PDF donné à partir d'une page spécifiée."""
+    try:
+        # Utilisation de Camelot pour extraire les tables
+        tables = cam.read_pdf(pdf_file, pages=str(page_number), flavor='stream')
+        if tables.n == 0:
+            print("Aucune table trouvée dans le fichier PDF.")
+        return tables
+    except Exception as e:
+        print(f"Erreur lors de l'extraction des tables : {e}")
+        return None
 
-    st.markdown("### Number of Tables")
+def display_extracted_tables(tables):
+    """Affiche les tables extraites sous forme de DataFrame et sauvegarde en CSV."""
+    if tables and tables.n > 0:
+        print(f"Nombre de tables trouvées : {tables.n}")
+        for i, table in enumerate(tables):
+            print(f"Table {i + 1}:")
+            print(table.df)
+            # Sauvegarde de la table sous forme de CSV
+            csv_file_name = f"table_{i + 1}.csv"
+            table.df.to_csv(csv_file_name, index=False)
+            print(f"Table {i + 1} sauvegardée sous {csv_file_name}")
+    else:
+        print("Aucune table à afficher.")
 
-    # display the output after parsing 
-    st.write(table)
+# Fonction principale
+if __name__ == "__main__":
+    # Installer Ghostscript si nécessaire
+    install_ghostscript()
 
-    # display the table
+    # Nom du fichier PDF à traiter
+    input_pdf_path = "input.pdf"
 
-    if len(table) > 0:
+    # Simuler l'entrée d'un fichier PDF (byte object)
+    # En supposant que le fichier PDF ait été déjà lu et encodé
+    pdf_byte_content = open(input_pdf_path, "rb").read()
 
-        # extract the index value of the table
-        
-        option = st.selectbox(label = "Select the Table to be displayed", options = range(len(table) + 1))
+    # Sauvegarder le fichier PDF localement
+    save_pdf(pdf_byte_content, "input_saved.pdf")
 
-        st.markdown('### Output Table')
+    # Spécifiez le numéro de page à extraire
+    page_number = input("Entrez le numéro de la page à partir de laquelle extraire les tables (ex: 3) : ")
 
-        # display the dataframe
-        
-        st.dataframe(table[int(option)-1].df)
+    # Extraire les tables du PDF
+    tables = extract_tables_from_pdf("input_saved.pdf", page_number)
+
+    # Afficher les tables extraites et les sauvegarder
+    display_extracted_tables(tables)
