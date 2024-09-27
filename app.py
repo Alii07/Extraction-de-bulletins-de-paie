@@ -14,6 +14,7 @@ version_camelot = camelot.__version__
 # Affichez la version dans l'interface Streamlit
 st.write(f"Version de Camelot : {version_camelot}")
 
+
 def extract_table_from_pdf(pdf_file_path, edge_tol, row_tol, pages):
     try:
         tables_stream = camelot.read_pdf(
@@ -25,14 +26,22 @@ def extract_table_from_pdf(pdf_file_path, edge_tol, row_tol, pages):
             row_tol=row_tol
         )
         return tables_stream
+
     except Exception as e:
         return None
-    
+
+@st.cache_data
+def save_table_to_memory_csv(df):
+    csv_buffer = StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+    return csv_buffer.getvalue()
+
 def check_second_line(file_content, required_elements):
     file_like_object = StringIO(file_content)
     reader = csv.reader(file_like_object)
-    next(reader)  # Ignore the first line (header)
-    second_line = next(reader, None)  # Read the second line
+    next(reader)  # Ignorer la première ligne (header)
+    second_line = next(reader, None)  # Lire la deuxième ligne
     if second_line and all(elem in second_line for elem in required_elements):
         return True
     return False
@@ -41,14 +50,6 @@ def split_columns(header, second_line, required_elements):
     required_indices = [i for i, col in enumerate(second_line) if col in required_elements]
     other_indices = [i for i, col in enumerate(second_line) if col not in required_elements]
     return required_indices, other_indices
-
-
-@st.cache_data
-def save_table_to_memory_csv(df):
-    csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False)
-    csv_buffer.seek(0)
-    return csv_buffer.getvalue()
 
 def process_pages(pdf_file_path, edge_tol, row_tol, page):
     tables_stream = extract_table_from_pdf(pdf_file_path, edge_tol, row_tol, pages=page)
@@ -60,12 +61,27 @@ def process_pages(pdf_file_path, edge_tol, row_tol, page):
             df_stream.fillna('', inplace=True)
             page_number = table.parsing_report['page']
 
-            # Prioritize larger tables based on the number of rows and columns
-            if df_stream.shape[0] > 5 and df_stream.shape[1] > 3:  # Heuristic to detect large tables
-                st.write(f"Large table found on page {page_number}")
-                results.append((page_number, df_stream))
-            else:
-                st.write(f"Skipping small table on page {page_number}")
+            # Vérifier si les colonnes prioritaires existent dans le tableau
+            priority_columns = ['code', 'libellé', 'codelibellé']
+
+            # Vérification seulement sur les colonnes de type "objet" (texte)
+            try:
+                found_priority = False
+                for col in df_stream.columns:
+                    if isinstance(col, str):  # Vérifie si la colonne est une chaîne de caractères
+                        if any(priority in col.lower() for priority in priority_columns):
+                            found_priority = True
+                            break  # On a trouvé une colonne prioritaire
+
+                # Si une colonne prioritaire est trouvée, le tableau est ajouté
+                if found_priority:
+                    st.write(f"Tableau avec colonnes prioritaires trouvé à la page {page_number}")
+                    results.append((page_number, df_stream))
+                else:
+                    st.write(f"Aucune colonne prioritaire trouvée à la page {page_number}, tableau quand même extrait.")
+                    results.append((page_number, df_stream))
+            except Exception as e:
+                st.write(f"Erreur lors de la vérification des colonnes à la page {page_number}: {e}")
     
     return results
 
@@ -95,12 +111,12 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
 
     st.write(f"Extraction des tableaux pour toutes les {total_pages} pages...")
 
-    # Utilisation de `ThreadPoolExecutor` pour traiter les pages en parallèle
+    # Utilisation de `ProcessPoolExecutor` pour traiter les pages en parallèle
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        page_futures = {executor.submit(process_pages, temp_pdf_path, 500, 10, str(page)): page for page in range(1, total_pages + 1)}
+        other_page_futures = {executor.submit(process_pages, temp_pdf_path, 300, 3, str(page)): page for page in range(1, total_pages + 1)}
         
-        for future in concurrent.futures.as_completed(page_futures):
-            page = page_futures[future]
+        for future in concurrent.futures.as_completed(other_page_futures):
+            page = other_page_futures[future]
             try:
                 results = future.result()
                 for page_number, df_stream in results:
