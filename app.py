@@ -2,11 +2,11 @@ import camelot as cam
 import streamlit as st
 import tempfile
 
-def extract_tables_from_pdf(pdf_file, page_number):
-    """Extrait les tables d'un PDF donné à partir d'une page spécifiée."""
+def extract_tables_from_pdf(pdf_file, page_range, flavor="stream", edge_tol=500, row_tol=10):
+    """Extrait les tables d'un PDF donné à partir d'un ensemble de pages spécifiées."""
     try:
-        # Utilisation de Camelot avec le flavor 'stream' uniquement (ne nécessite pas Ghostscript)
-        tables = cam.read_pdf(pdf_file, pages=str(page_number), flavor='stream')
+        # Utilisation de Camelot avec des paramètres ajustés
+        tables = cam.read_pdf(pdf_file, pages=page_range, flavor=flavor, edge_tol=edge_tol, row_tol=row_tol)
         if tables.n == 0:
             st.write("Aucune table trouvée dans le fichier PDF.")
         return tables
@@ -29,7 +29,7 @@ def display_extracted_tables(tables):
         st.write("Aucune table à afficher.")
 
 # Streamlit app starts here
-st.title("PDF Table Extraction (Stream Flavor)")
+st.title("PDF Table Extraction (Stream Flavor with Enhanced Detection)")
 
 # File uploader for the PDF file
 uploaded_pdf = st.file_uploader("Téléverser un fichier PDF", type=["pdf"])
@@ -40,12 +40,12 @@ if uploaded_pdf is not None:
         temp_pdf.write(uploaded_pdf.read())
         temp_pdf_path = temp_pdf.name
 
-    # Ask for the page number to extract tables
-    page_number = st.number_input("Entrez le numéro de la page à partir de laquelle extraire les tables", min_value=1, value=1, step=1)
+    # Ask for the page range to extract tables from
+    page_range = st.text_input("Entrez la plage de pages pour extraire les tables (ex: 1-5, 3)", "1")
 
     if st.button("Extraire les tables"):
-        # Extract tables from the specified page number using stream
-        tables = extract_tables_from_pdf(temp_pdf_path, page_number)
+        # Extract tables from the specified page range
+        tables = extract_tables_from_pdf(temp_pdf_path, page_range, flavor="stream", edge_tol=500, row_tol=10)
 
         # Display the extracted tables
         display_extracted_tables(tables)
