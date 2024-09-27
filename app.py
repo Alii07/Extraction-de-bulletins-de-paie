@@ -2,15 +2,11 @@ import camelot as cam
 import streamlit as st
 import tempfile
 
-def extract_tables_from_pdf(pdf_file, page_number, flavor="lattice"):
+def extract_tables_from_pdf(pdf_file, page_number):
     """Extrait les tables d'un PDF donné à partir d'une page spécifiée."""
     try:
-        # Utilisation de Camelot avec le flavor 'lattice' d'abord
-        tables = cam.read_pdf(pdf_file, pages=str(page_number), flavor=flavor)
-        if tables.n == 0 and flavor == 'lattice':
-            st.write("No tables found with lattice. Switching to stream mode...")
-            # Retry with 'stream' mode if lattice fails
-            tables = cam.read_pdf(pdf_file, pages=str(page_number), flavor='stream')
+        # Utilisation de Camelot avec le flavor 'stream' uniquement (ne nécessite pas Ghostscript)
+        tables = cam.read_pdf(pdf_file, pages=str(page_number), flavor='stream')
         if tables.n == 0:
             st.write("Aucune table trouvée dans le fichier PDF.")
         return tables
@@ -33,7 +29,7 @@ def display_extracted_tables(tables):
         st.write("Aucune table à afficher.")
 
 # Streamlit app starts here
-st.title("PDF Table Extraction")
+st.title("PDF Table Extraction (Stream Flavor)")
 
 # File uploader for the PDF file
 uploaded_pdf = st.file_uploader("Téléverser un fichier PDF", type=["pdf"])
@@ -48,8 +44,8 @@ if uploaded_pdf is not None:
     page_number = st.number_input("Entrez le numéro de la page à partir de laquelle extraire les tables", min_value=1, value=1, step=1)
 
     if st.button("Extraire les tables"):
-        # Extract tables from the specified page number using lattice first
-        tables = extract_tables_from_pdf(temp_pdf_path, page_number, flavor="lattice")
+        # Extract tables from the specified page number using stream
+        tables = extract_tables_from_pdf(temp_pdf_path, page_number)
 
         # Display the extracted tables
         display_extracted_tables(tables)
