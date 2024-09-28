@@ -634,19 +634,14 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
     # Générer un rapport d'absences à partir des fichiers CSV en mémoire
     absence_report_csv = generate_absences_report(updated_csv_files)
 
-    # Fonction pour vérifier si le tableau contient les éléments requis
-    def check_valid_table(csv_content, required_elements, required_elements2):
-        """Vérifie si le fichier CSV contient les éléments requis dans la deuxième ligne."""
-        return check_second_line(csv_content, required_elements) or check_second_line(csv_content, required_elements2)
-
-    # Modifier la fonction merge_bulletins_with_matricules pour filtrer les matricules
-    def merge_bulletins_with_matricules(valid_matricules, combined_csv_content):
+    # Fonction pour fusionner les bulletins avec les matricules en mémoire
+    def merge_bulletins_with_matricules(matricules, combined_csv_content):
         combined_data = []
         reader = csv.reader(StringIO(combined_csv_content))
         combined_data = [row for row in reader]
 
-        if len(valid_matricules) > len(combined_data):
-            st.write(len(valid_matricules))
+        if len(matricules) > len(combined_data):
+            st.write(len(matricules))
             st.write(len(combined_data))
             raise ValueError("Le fichier de matricules contient plus de lignes que le fichier combined_output.")
 
@@ -654,8 +649,8 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
         merged_data.append(["Matricule"] + combined_data[0])
 
         for i, row in enumerate(combined_data[1:], start=1):
-            if i <= len(valid_matricules):
-                matricule = valid_matricules[i - 1]
+            if i <= len(matricules):
+                matricule = matricules[i - 1]
                 merged_data.append([matricule] + row)
             else:
                 break
@@ -665,45 +660,12 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
         writer.writerows(merged_data)
         return output_buffer.getvalue()
 
-    # Fonction pour filtrer les matricules sans tableaux valides
-    def filter_valid_matricules(matricules, csv_files, required_elements, required_elements2):
-        valid_matricules = set()
-        
-        # Vérifier chaque matricule dans les fichiers csv
-        for matricule in matricules:
-            found_valid_table = False
-            for filename, csv_content in csv_files.items():
-                # Vérifier si ce tableau contient les éléments requis
-                if matricule in csv_content and check_valid_table(csv_content, required_elements, required_elements2):
-                    found_valid_table = True
-                    break
-
-            # Ajouter la matricule à valid_matricules si un tableau valide est trouvé
-            if found_valid_table:
-                valid_matricules.add(matricule)
-
-        return sorted(list(valid_matricules))
-
-    # Fonction principale pour traiter et fusionner les matricules
-    def process_and_merge_matricules(matricules, csv_files, combined_csv_content, required_elements, required_elements2):
-        # Filtrer les matricules sans tableaux valides
-        valid_matricules = filter_valid_matricules(matricules, csv_files, required_elements, required_elements2)
-
-        # Fusionner uniquement les matricules valides avec le résultat combiné
-        if valid_matricules:
-            merged_csv_content = merge_bulletins_with_matricules(valid_matricules, combined_csv_content)
-            return merged_csv_content
-        else:
-            st.write("Aucun matricule valide trouvé.")
-            return None
-
-    # Exemple d'utilisation :
+    # Simuler les matricules et le fichier combiné
     matricules = sorted(list(all_matricules))
 
-    # Traiter et fusionner les matricules avec les fichiers CSV filtrés
-    merged_csv_content = process_and_merge_matricules(
-        matricules, restructured_files, combined_csv_content, required_elements, required_elements2
-    )
+
+    # Fusionner les bulletins avec les matricules
+    merged_csv_content = merge_bulletins_with_matricules(matricules, combined_csv_content)
 
     # Lecture des fichiers uploadés (en mémoire)
     if uploaded_file_1 is not None and uploaded_file_2 is not None:
