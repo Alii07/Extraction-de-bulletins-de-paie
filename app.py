@@ -51,7 +51,6 @@ def split_columns(header, second_line, required_elements):
     other_indices = [i for i, col in enumerate(second_line) if col not in required_elements]
     return required_indices, other_indices
 
-# Fonction pour traiter les pages du PDF
 def process_pages(pdf_file_path, edge_tol, row_tol, page):
     tables_stream = extract_table_from_pdf(pdf_file_path, edge_tol, row_tol, pages=page)
     results = []
@@ -66,18 +65,25 @@ def process_pages(pdf_file_path, edge_tol, row_tol, page):
             priority_columns = ['code', 'libellé', 'codelibellé']
 
             # Vérification seulement sur les colonnes de type "objet" (texte)
-            string_columns = df_stream.columns
+            try:
+                found_priority = False
+                for col in df_stream.columns:
+                    if isinstance(col, str):  # Vérifie si la colonne est une chaîne de caractères
+                        if any(priority in col.lower() for priority in priority_columns):
+                            found_priority = True
+                            break  # On a trouvé une colonne prioritaire
 
-            # Filtrer les colonnes où au moins un élément est un string contenant une des colonnes prioritaires
-            for col in string_columns:
-                if isinstance(col, str) and any(priority_col in col.lower() for priority_col in priority_columns):
-                    # Ajouter le tableau à traiter en priorité
+                # Si une colonne prioritaire est trouvée, le tableau est ajouté
+                if found_priority:
+                    st.write(f"Tableau avec colonnes prioritaires trouvé à la page {page_number}")
                     results.append((page_number, df_stream))
-                    break  # Si on trouve une colonne prioritaire, on passe au tableau suivant
+                else:
+                    st.write(f"Aucune colonne prioritaire trouvée à la page {page_number}, tableau quand même extrait.")
+                    results.append((page_number, df_stream))
+            except Exception as e:
+                st.write(f"Erreur lors de la vérification des colonnes à la page {page_number}: {e}")
     
     return results
-
-
 
 # Titre de l'application Streamlit
 st.title("Extraction de bulletins de paie à partir de PDF avec colonnes prioritaires")
@@ -126,6 +132,7 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
                 st.write(f"Erreur lors du traitement des pages {page}: {e}")
 
     st.write("Extraction des tableaux terminée.")
+
 
 
     # Liste des éléments requis
