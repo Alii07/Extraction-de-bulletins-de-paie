@@ -51,6 +51,7 @@ def split_columns(header, second_line, required_elements):
     other_indices = [i for i, col in enumerate(second_line) if col not in required_elements]
     return required_indices, other_indices
 
+# Fonction pour traiter les pages du PDF
 def process_pages(pdf_file_path, edge_tol, row_tol, page):
     tables_stream = extract_table_from_pdf(pdf_file_path, edge_tol, row_tol, pages=page)
     results = []
@@ -65,25 +66,18 @@ def process_pages(pdf_file_path, edge_tol, row_tol, page):
             priority_columns = ['code', 'libellé', 'codelibellé']
 
             # Vérification seulement sur les colonnes de type "objet" (texte)
-            try:
-                found_priority = False
-                for col in df_stream.columns:
-                    if isinstance(col, str):  # Vérifie si la colonne est une chaîne de caractères
-                        if any(priority in col.lower() for priority in priority_columns):
-                            found_priority = True
-                            break  # On a trouvé une colonne prioritaire
+            string_columns = df_stream.columns
 
-                # Si une colonne prioritaire est trouvée, le tableau est ajouté
-                if found_priority:
-                    st.write(f"Tableau avec colonnes prioritaires trouvé à la page {page_number}")
+            # Filtrer les colonnes où au moins un élément est un string contenant une des colonnes prioritaires
+            for col in string_columns:
+                if isinstance(col, str) and any(priority_col in col.lower() for priority_col in priority_columns):
+                    # Ajouter le tableau à traiter en priorité
                     results.append((page_number, df_stream))
-                else:
-                    st.write(f"Aucune colonne prioritaire trouvée à la page {page_number}, tableau quand même extrait.")
-                    results.append((page_number, df_stream))
-            except Exception as e:
-                st.write(f"Erreur lors de la vérification des colonnes à la page {page_number}: {e}")
+                    break  # Si on trouve une colonne prioritaire, on passe au tableau suivant
     
     return results
+
+
 
 # Titre de l'application Streamlit
 st.title("Extraction de bulletins de paie à partir de PDF avec colonnes prioritaires")
@@ -132,7 +126,6 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
                 st.write(f"Erreur lors du traitement des pages {page}: {e}")
 
     st.write("Extraction des tableaux terminée.")
-
 
 
     # Liste des éléments requis
@@ -641,14 +634,19 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
     # Générer un rapport d'absences à partir des fichiers CSV en mémoire
     absence_report_csv = generate_absences_report(updated_csv_files)
 
-    # Fonction pour fusionner les bulletins avec les matricules en mémoire
-    def merge_bulletins_with_matricules(matricules, combined_csv_content):
+    # Fonction pour vérifier si le tableau contient les éléments requis
+    def check_valid_table(csv_content, required_elements, required_elements2):
+        """Vérifie si le fichier CSV contient les éléments requis dans la deuxième ligne."""
+        return check_second_line(csv_content, required_elements) or check_second_line(csv_content, required_elements2)
+
+    # Modifier la fonction merge_bulletins_with_matricules pour filtrer les matricules
+    def merge_bulletins_with_matricules(valid_matricules, combined_csv_content):
         combined_data = []
         reader = csv.reader(StringIO(combined_csv_content))
         combined_data = [row for row in reader]
 
-        if len(matricules) > len(combined_data):
-            st.write(len(matricules))
+        if len(valid_matricules) > len(combined_data):
+            st.write(len(valid_matricules))
             st.write(len(combined_data))
             raise ValueError("Le fichier de matricules contient plus de lignes que le fichier combined_output.")
 
@@ -656,8 +654,8 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
         merged_data.append(["Matricule"] + combined_data[0])
 
         for i, row in enumerate(combined_data[1:], start=1):
-            if i <= len(matricules):
-                matricule = matricules[i - 1]
+            if i <= len(valid_matricules):
+                matricule = valid_matricules[i - 1]
                 merged_data.append([matricule] + row)
             else:
                 break
@@ -667,12 +665,45 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
         writer.writerows(merged_data)
         return output_buffer.getvalue()
 
-    # Simuler les matricules et le fichier combiné
+    # Fonction pour filtrer les matricules sans tableaux valides
+    def filter_valid_matricules(matricules, csv_files, required_elements, required_elements2):
+        valid_matricules = set()
+        
+        # Vérifier chaque matricule dans les fichiers csv
+        for matricule in matricules:
+            found_valid_table = False
+            for filename, csv_content in csv_files.items():
+                # Vérifier si ce tableau contient les éléments requis
+                if matricule in csv_content and check_valid_table(csv_content, required_elements, required_elements2):
+                    found_valid_table = True
+                    break
+
+            # Ajouter la matricule à valid_matricules si un tableau valide est trouvé
+            if found_valid_table:
+                valid_matricules.add(matricule)
+
+        return sorted(list(valid_matricules))
+
+    # Fonction principale pour traiter et fusionner les matricules
+    def process_and_merge_matricules(matricules, csv_files, combined_csv_content, required_elements, required_elements2):
+        # Filtrer les matricules sans tableaux valides
+        valid_matricules = filter_valid_matricules(matricules, csv_files, required_elements, required_elements2)
+
+        # Fusionner uniquement les matricules valides avec le résultat combiné
+        if valid_matricules:
+            merged_csv_content = merge_bulletins_with_matricules(valid_matricules, combined_csv_content)
+            return merged_csv_content
+        else:
+            st.write("Aucun matricule valide trouvé.")
+            return None
+
+    # Exemple d'utilisation :
     matricules = sorted(list(all_matricules))
 
-
-    # Fusionner les bulletins avec les matricules
-    merged_csv_content = merge_bulletins_with_matricules(matricules, combined_csv_content)
+    # Traiter et fusionner les matricules avec les fichiers CSV filtrés
+    merged_csv_content = process_and_merge_matricules(
+        matricules, restructured_files, combined_csv_content, required_elements, required_elements2
+    )
 
     # Lecture des fichiers uploadés (en mémoire)
     if uploaded_file_1 is not None and uploaded_file_2 is not None:
