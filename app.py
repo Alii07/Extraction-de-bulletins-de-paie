@@ -730,9 +730,9 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
 
         # Proposer le fichier final en téléchargement
         st.download_button(
-            label="Télécharger le fichier fusionné avec absences",
+            label="Télécharger le fichier restructuré",
             data=final_csv_content,
-            file_name="fichier_fusionné_avec_absences.csv",
+            file_name="fichier_restructuré.csv",
             mime="text/csv"
         )
 
