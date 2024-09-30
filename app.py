@@ -8,12 +8,6 @@ from PyPDF2 import PdfReader
 import csv
 import re
 
-# Obtenez la version de Camelot
-version_camelot = camelot.__version__
-
-# Affichez la version dans l'interface Streamlit
-st.write(f"Version de Camelot : {version_camelot}")
-
 
 def extract_table_from_pdf(pdf_file_path, edge_tol, row_tol, pages):
     try:
@@ -75,10 +69,10 @@ def process_pages(pdf_file_path, edge_tol, row_tol, page):
 
                 # Si une colonne prioritaire est trouvée, le tableau est ajouté
                 if found_priority:
-                    st.write(f"Tableau avec colonnes prioritaires trouvé à la page {page_number}")
+                    #st.write(f"Tableau avec colonnes prioritaires trouvé à la page {page_number}")
                     results.append((page_number, df_stream))
                 else:
-                    st.write(f"Aucune colonne prioritaire trouvée à la page {page_number}, tableau quand même extrait.")
+                    #st.write(f"Aucune colonne prioritaire trouvée à la page {page_number}, tableau quand même extrait.")
                     results.append((page_number, df_stream))
             except Exception as e:
                 st.write(f"Erreur lors de la vérification des colonnes à la page {page_number}: {e}")
@@ -190,7 +184,7 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
     # Remettre le curseur au début du buffer
     matricules_buffer.seek(0)
 
-    st.write(pd.read_csv(matricules_buffer))
+    #st.write(pd.read_csv(matricules_buffer))
 
     # Affichage du message de succès
     st.write("Extraction des matricules terminée.")
@@ -655,8 +649,8 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
     absence_report_df = absence_report_csv
 
     # Afficher le DataFrame des absences directement
-    st.write("Rapport des absences :")
-    st.dataframe(absence_report_df)
+    #st.write("Rapport des absences :")
+    #st.dataframe(absence_report_df)
 
     # Fonction pour fusionner les bulletins avec les matricules en mémoire
     def merge_bulletins_with_matricules(matricules, combined_csv_content):
