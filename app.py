@@ -625,21 +625,38 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
         return absences_par_jour, absences_par_heure
 
     # Fonction pour traiter les fichiers CSV en mémoire et générer un rapport d'absences
-    def generate_absences_report(csv_files):
-        report_data = [['Nom du Fichier', 'Absences par Jour', 'Absences par Heure']]
-
-        for filename, csv_content in csv_files.items():
+    def generate_absences_report(csv_files, matricules):
+        report_data = []
+        
+        # Assurez-vous que le nombre de matricules est égal au nombre de fichiers CSV
+        if len(csv_files) != len(matricules):
+            st.write("Erreur : Le nombre de matricules ne correspond pas au nombre de fichiers CSV.")
+            return pd.DataFrame(columns=['Matricule', 'Absences par Jour', 'Absences par Heure'])
+        
+        # Parcourir les fichiers CSV et les matricules simultanément
+        for (filename, csv_content), matricule in zip(csv_files.items(), matricules):
+            # Lire le contenu CSV en tant que DataFrame
             df = pd.read_csv(StringIO(csv_content))
             absences_par_jour, absences_par_heure = process_dataframe(df)
-            report_data.append([filename, absences_par_jour, absences_par_heure])
+            
+            # Ajouter les résultats dans le rapport
+            report_data.append([matricule, absences_par_jour, absences_par_heure])
+        
+        # Créer un DataFrame final avec les absences par matricule
+        return pd.DataFrame(report_data, columns=['Matricule', 'Absences par Jour', 'Absences par Heure'])
 
-        output_buffer = StringIO()
-        writer = csv.writer(output_buffer)
-        writer.writerows(report_data)
-        return output_buffer.getvalue()
 
+    matricules = sorted(list(all_matricules))
     # Générer un rapport d'absences à partir des fichiers CSV en mémoire
-    absence_report_csv = generate_absences_report(updated_csv_files)
+    absence_report_csv = generate_absences_report(updated_csv_files,matricules)
+
+    # Afficher le DataFrame contenant les absences avant la fin du processus
+    # Ligne corrigée : utilisez directement absence_report_csv car c'est déjà un DataFrame
+    absence_report_df = absence_report_csv
+
+    # Afficher le DataFrame des absences directement
+    st.write("Rapport des absences :")
+    st.dataframe(absence_report_df)
 
     # Fonction pour fusionner les bulletins avec les matricules en mémoire
     def merge_bulletins_with_matricules(matricules, combined_csv_content):
@@ -673,7 +690,6 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
 
     # Fusionner les bulletins avec les matricules
     merged_csv_content = merge_bulletins_with_matricules(matricules, combined_csv_content)
-
     # Lecture des fichiers uploadés (en mémoire)
     if uploaded_file_1 is not None and uploaded_file_2 is not None:
         cumul_data = pd.read_excel(uploaded_file_1)
@@ -710,17 +726,20 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
             cols.insert(1, cols.pop(cols.index('Nom Prénom')))
         final_df = final_df[cols]
 
+        # Fusionner avec le rapport d'absences
+        final_df_with_absences = final_df.merge(absence_report_df, on='Matricule', how='left')
+
         # Sauvegarder le résultat final dans un buffer CSV
         output_buffer = StringIO()
-        final_df.to_csv(output_buffer, index=False)
+        final_df_with_absences.to_csv(output_buffer, index=False)
         final_csv_content = output_buffer.getvalue()
 
         # Proposer le fichier final en téléchargement
         st.download_button(
-            label="Télécharger le fichier fusionné",
+            label="Télécharger le fichier fusionné avec absences",
             data=final_csv_content,
-            file_name="fichier_fusionné.csv",
+            file_name="fichier_fusionné_avec_absences.csv",
             mime="text/csv"
         )
 
-        st.write("Fusion des fichiers Excel et CSV terminée.")
+        st.write("Fusion des fichiers Excel, CSV et rapport d'absences terminée.")
