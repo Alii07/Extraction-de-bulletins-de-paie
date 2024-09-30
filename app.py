@@ -494,7 +494,7 @@ if uploaded_pdf is not None and uploaded_file_1 is not None and uploaded_file_2 
 
         # Trier les fichiers CSV par ordre alphabétique des noms
         for i, (filename, csv_content) in enumerate(csv_files_sorted):
-            st.write(filename)  # Afficher le fichier en ordre numérique
+            #st.write(filename)  # Afficher le fichier en ordre numérique
             file_like_object = StringIO(csv_content)
             reader = csv.reader(file_like_object)
             headers = next(reader)
