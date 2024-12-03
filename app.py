@@ -81,7 +81,7 @@ st.title("Extraction de bulletins de paie à partir de PDF")
 
 uploaded_pdf = st.file_uploader("Téléverser un fichier PDF", type=["pdf"])
 
-num_files = st.number_input("How many Excel files do you want to upload?", min_value=1, max_value=5, step=1)
+num_files = st.number_input("How many Excel files do you want to upload?", min_value=1, max_value=6, step=1)
 
 uploaded_files = []
 for i in range(1, num_files + 1):  # Adjust the loop based on the chosen number
